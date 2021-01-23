@@ -1,0 +1,98 @@
+---
+title: "BI303 - Lab1 - Forest Succession"
+author: "Zoey Werbin"
+date: "1/22/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+## R Markdown
+
+## 1. Enter data
+
+To match the steps of the lab handout, we will create two tables: one for each site. In R, these are called *data frames*, and they are used when we have multiple types of data (such as site categories, and numeric values). To create the data frames, we will use the `cbind()` function, which binds columns together. The table we create is saved to an object using the `<-` operator. We then use the `print()` function to view what we have created.
+```{r}
+site1 <- cbind.data.frame(site = "site1", 
+													plot = c("plot1", "plot2","plot3"),
+													plot_area = c(20, 20, 20),
+													Pinus_strobus = c(13, 17, 11),
+													Betula_papyrifera = c(16, 19, 23),
+													Fagus_grandifolia = c(2, 0, 5))
+print(site1)
+```
+
+We do the same for site 2, then combine the data frames from each site:
+```{r}
+site2 <- cbind.data.frame(site = "site2", 
+													plot = c("plot1", "plot2","plot3"),
+													plot_area = c(30, 30, 30),
+													Pinus_strobus = c(10, 12, 9),
+													Betula_papyrifera = c(8, 1, 3),
+													Fagus_grandifolia = c(12, 10, 22))
+
+# Combine data from both sites into one data frame using row-bind (`rbind.data.frame`)
+sites <- rbind.data.frame(site1, site2)
+print(sites)
+```
+## 2. Determine Density
+
+Next, we determine the density of each species in each plot on a m2 basis by dividing each species count by the area of the plot. To do this in R, we use functions from the `dplyr` package, which is one of the most widely-used R packages. It uses a 'pipe' operator, ` %>% `, that takes the output of one function and 'pipes' it into another function. Below, the `sites` data frame is piped into the `group_by` function, which groups the data into sites. This is piped into the `summarize()` function, which we use to calculate the per-site per-species density.
+
+```{r}
+# Calculate density by dividing counts by plot areas
+density <- sites %>% group_by(site) %>% summarize(Pinus_strobus_density = Pinus_strobus/plot_area,
+																									Betula_papyrifera_density = Betula_papyrifera/plot_area,
+																									Fagus_grandifolia_density = Fagus_grandifolia/plot_area)
+
+print(density)
+```
+
+## 3. Calculate Average 
+## 4.	Calculate Standard Deviation
+
+In this section, we will calculate both the average and the standard deviation. First, we reshape the data into "long" format, which makes it easier to plot. We do this using the `pivot_longer()` function, which is from the `tidyr` package.
+```{r}
+density_long <- density %>% group_by(site) %>% 
+	pivot_longer(cols = c(Pinus_strobus_density, 
+												Betula_papyrifera_density, 
+												Fagus_grandifolia_density), values_to = "density")
+print(density_long)
+```
+
+Now, we use the `summarize()` function from the `dplyr` package to calculate mean and standard deviation. If there were any empty cells (or NAs) in the data, this could create errors, so we use the `na.rm = T` argument just in case. 
+```{r}
+average_density <- density_long %>% group_by(site, name) %>% 
+	summarize(mean = mean(density, na.rm = T),
+						sd = sd(density, na.rm = T))
+print(average_density)
+```
+
+## 5.	Create chart
+In the original lab handout, steps 5 through 7 all create a final bar plot. In R, we can combine these steps using the `ggplot2` package, which is the most widely-used for graphics and plots.
+```{r}
+final_plot <- ggplot(average_density,  aes(x = name, fill = site)) + 
+	geom_bar(stat="identity", aes(y = mean), position=position_dodge()) +
+	# The line below creates error bars
+	geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), width=.2,
+								position=position_dodge(.9)) 
+final_plot
+```
+
+
+Finally, we'll edit the plot to add a title and caption. To recieve extra credit, modify the code below to add a custom title and caption.
+
+```{r}
+final_plot + labs(title = "Main title", caption = "My caption") + 
+	xlab("x-axis label") +
+	ylab("y-axis label") +
+	theme(plot.caption = element_text(hjust = 0)) 
+
+```
