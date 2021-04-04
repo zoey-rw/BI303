@@ -1,0 +1,111 @@
+---
+title: 'Lab 8: Demography'
+author: "BI303 Lab"
+date: "4/1/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Part 1: Setup. ##
+
+The first time you run this code, you must "install" some packages. 
+We use the "pacman" package to check for and install all of the other packages we want.There are over 20,000 R packages to choose from, but we only need a few for today's lab.
+```{r}
+if (!require("pacman")) # If you don't have "pacman", this installs it.
+  install.packages("pacman") 
+pacman::p_load(dplyr, ggplot2, tidyr, ggpubr, scales) # Package list.
+```
+
+## Part 2: Read in human demography life table for USA ##
+
+This data comes from the Human Mortality Database. Information about data collection and reporting available here (last two pages are the United States): https://www.mortality.org/Public/STMF_DOC/STMFmetadata.pdf
+```{r}
+full_lifetable_raw <- read.csv("HumanMortality_data.csv")
+full_lifetable_raw$year <- as.factor(full_lifetable_raw$year) #Change years to categories
+head(full_lifetable_raw)
+```
+Data is reported from the year 1933 to 2016. We could plot data from all years at once, but it looks a little overwhelming:
+
+```{r}
+# Plot life expectancy
+fig_allyears <- ggplot(full_lifetable_raw) + 
+  geom_line(aes(x = age, 
+                y = ex, 
+                color = year)) + 
+  facet_grid(~sex) +
+  ylab("ex (life expectancy)")
+fig_allyears
+```
+
+But we can see that life expectancy for a given age is higher for recent years (blue & pink) than for older years (orange & green). But let's choose a couple specific years and test whether this is a statistically significant difference. Since the data is split by sex, we can subset the data to only data representing females. We'll use the `t.test()` function to test a dependent variable, life expectancy (`ex`) as a function of `year`. Rather than just testing whether the life expectancy is different between years, we will test the specific hypothesis that life expectancy is lower for 1935 than for 2015, using the function argument `alternative = 'less'`.
+```{r}
+filtered <- full_lifetable_raw %>% 
+  filter(year %in% c(1935, 2015)) %>% 
+  filter(sex == "female")
+
+t.test(ex ~ year, data = filtered,
+        var.equal = TRUE, alternative = "less")
+```
+Our p-value is .0037, so we can reject the null hypothesis (that both groups are equal). We found support for our alternative hypothesis.
+
+For the lab handout, *complete a t-test for males instead of females and report your results.*
+
+## Part 3: Create human mortality figures ##
+
+Next, we'll create figures using our life table. The figure, showing life expectancy, is created below. Use the template to create comparable figures for mortality and survivorship. Include these figures, with captions, in the lab handout.
+```{r}
+filtered <- full_lifetable_raw %>% 
+  filter(year %in% c(1935, 2015)) 
+
+# Plot life expectancy
+p1 <- ggplot(filtered) + 
+  geom_line(aes(x = age, 
+                y = ex, 
+                color = sex, 
+                linetype=year)) + 
+  ylab("ex (life expectancy)")
+p1
+
+# Plot survivorship
+p2 <- ggplot(filtered) + 
+  # Fill in the missing part of this plot
+  ylab("lx (survivorship)") 
+
+# Plot mortality
+p3 <- ggplot(filtered) + 
+  # Fill in the missing part of this plot
+  ylab("dx (mortality)") 
+```
+
+## Part 4: Survivorship curves for animals ##
+For the final part of this activity, we'll look at survivorship curves for three species. Data comes from datlife.org, which is the site of DATLife (Demography of Aging across the Tree of Life).
+
+```{r}
+# Read in CSV with data
+animal_lifetable <- read.csv("AnimalMortality_data.csv")
+head(animal_lifetable)
+```
+If we plot the data as-is, it doesn't all show up on the plot - because macaques are primates that live multiple decades, whereas chipmunks and owls live less than a decade:
+```{r}
+ggplot(animal_lifetable) + 
+  geom_smooth(aes(x = x, 
+                  y = lx_stand, color = animal), show.legend = F) +
+  ylab("lx (survivorship)") + #scale_x_continuous(trans=logit_trans())+
+  theme_light() + #facet_grid(~animal, scales = "free") +
+  theme(plot.caption = element_text(hjust = 0)) 
+```
+
+Normalize the data so that the three species have similar x-axis values. One function for doing this is below, which puts values on a scale between 0 and 1. Use the `group_by()` to apply this function to each animal separately, and the `mutate()` function to create a new column for this value. 
+
+```{r}
+normalizing_function = function(x) (x-min(x))/(max(x)-min(x))
+# # Example code
+# animal_lifetable <- animal_lifetable %>% 
+#   group_by(animal) %>% 
+#   mutate(normalized_age = ...) # What goes here?
+```
+
+Include this figure, with a caption, on your lab handout. Interpret your results and discuss differences between the three species.
